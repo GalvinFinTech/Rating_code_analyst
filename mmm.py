@@ -1,7 +1,9 @@
 import streamlit as st
 import plotly.graph_objects as go
 import plotly.express as px
-from vnstock import *
+from vnstock import (stock_screening_insights,stock_evaluation,general_rating,industry_analysis, valuation_rating,
+financial_health_rating, biz_model_rating,company_officers, company_subsidiaries_listing, company_large_shareholders,biz_operation_rating)
+import pandas as pd
 from PIL import Image
 import ta
 
