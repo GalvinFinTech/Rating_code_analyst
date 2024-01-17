@@ -8,6 +8,7 @@ import ta
 
 
 st.set_page_config(page_title="Stock Dashboard", page_icon="📈", layout="wide")
+code = st.text_input('Enter stock code (Example: MCH):').upper()
 
 # Đánh dấu hàm này để lưu trữ dữ liệu tải lên trong bộ nhớ cache
 @st.cache_data
@@ -146,7 +147,7 @@ def get_stock_data(data_df, code, value_column):
     stock_result = stock_result.dropna(subset=[value_column])
     return stock_result[["Date", value_column]]
 def main():
-    code = st.text_input('Enter stock code (Example: MCH):').upper()
+
     industry = 'Thực phẩm'
     years = [2018, 2019, 2020, 2021, 2022]
     bank_bctc = process_and_concat_data(years, industry)
@@ -171,7 +172,7 @@ def main():
     # Hiển thị tiêu đề và thông tin ở cột trái
     with left_column:
         st.title('MCH')
-        image = Image.open('MCH.jpeg')
+        image = Image.open('/Users/nguyenhoangvi/Downloads/Ứng dụng Python/MCH_K214142099/MCH.jpeg')
         st.image(image, caption='CTCP Hàng tiêu dùng Masan')
     with right_column:
         # Display metrics in a single row
@@ -1369,3 +1370,4 @@ def dupont_analysis_plot(cstc):
     return fig
 if __name__ == "__main__":
     main()
+
