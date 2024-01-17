@@ -162,7 +162,7 @@ def main():
         "epsGrowth1Year": (0, 1000000),
     }
     V = stock_screening_insights(params, size=1700, drop_lang='vi')
-    mch_data = V[V['ticker'] == 'MCH']
+    mch_data = V[V['ticker'] == 'MCH' ]
     #mch_data_reset = mch_data.reset_index(drop=True)
     with st.sidebar:
         st.sidebar.title("📈 Stock Dashboard")
@@ -231,25 +231,32 @@ def phan_tich_nganh(df_info,bctc):
     # Hiển thị biểu đồ trong ứng dụng Streamlit
     st.plotly_chart(fig)
 
-    nganh = industry_analysis('MCH', lang="vi")
-    d1 = preprocess_industry_data(nganh)
-    d1.columns = ['Mã CP', 'Vốn hóa(tỷ)', 'Giá', 'P/B', 'ROE', 'P/E', 'ROA','rs']
+    fig7 = plot_revenue_comparison(bctc)
+    st.plotly_chart(fig7, use_container_width=True)
+    fig8 = plot_equity(bctc)
+    st.plotly_chart(fig8,use_container_width=True)
+    fig9 = plot_profit_after_tax(bctc)
+
+    st.plotly_chart(fig9,use_container_width=True)
+    #nganh = industry_analysis('MCH', lang="vi")
+    d1 = preprocess_industry_data()
+    d1.columns = ['Mã CP', 'Vốn hóa(tỷ)', 'Giá', 'P/B', 'ROE', 'P/E', 'ROA']
     # Chọn giá trị cho x và y từ người dùng
     selected_x = st.selectbox('Chọn giá trị cho trục x:', ['ROE', 'ROA'])
     selected_y = st.selectbox('Chọn giá trị cho trục y:', ['P/B', 'P/E'])
-    u1,u2 = st.columns((7,3))
+    u1, u2 = st.columns((7, 3))
     with u1:
         # Tạo biểu đồ dựa trên lựa chọn của người dùng
         fig = px.scatter(
-        d1, x=selected_x, y=selected_y, size="Vốn hóa(tỷ)", text="Mã CP",
-        color="Vốn hóa(tỷ)", color_continuous_scale="Rainbow", size_max=120,
-        hover_name="Mã CP", hover_data={selected_x: True, selected_y: True, "Vốn hóa(tỷ)": True, "Mã CP": False})
-    # Update layout
+            d1, x=selected_x, y=selected_y, size="Vốn hóa(tỷ)", text="Mã CP",
+            color="Vốn hóa(tỷ)", color_continuous_scale="Rainbow", size_max=120,
+            hover_name="Mã CP", hover_data={selected_x: True, selected_y: True, "Vốn hóa(tỷ)": True, "Mã CP": False})
+        # Update layout
         fig.update_layout(
-        title=f'So sánh tương quan - {selected_x} vs {selected_y}',
-        xaxis=dict(title=f'{selected_x}'),
-        yaxis=dict(title=f'{selected_y}'),
-        showlegend=True, legend=dict(orientation='h', yanchor='top', y=-0.15))
+            title=f'So sánh tương quan - {selected_x} vs {selected_y}',
+            xaxis=dict(title=f'{selected_x}'),
+            yaxis=dict(title=f'{selected_y}'),
+            showlegend=True, legend=dict(orientation='h', yanchor='top', y=-0.15))
 
         st.plotly_chart(fig, use_container_width=True)
     with u2:
@@ -258,12 +265,6 @@ def phan_tich_nganh(df_info,bctc):
              '\n - MCH có hiệu quả sử dụng vốn chủ sở hữu và tổng tài sản tốt nhất. Điều này cho thấy công ty này có khả năng tạo ra lợi nhuận cao từ vốn và tài sản của mình.'
              '\n - MCH có tiềm năng tăng trưởng cao. Điều này được thể hiện qua giá trị PE thấp của cổ phiếu.'
              )
-    fig7 = plot_revenue_comparison(bctc)
-    st.plotly_chart(fig7, use_container_width=True)
-    fig8 = plot_equity(bctc)
-    st.plotly_chart(fig8,use_container_width=True)
-    fig9 = plot_profit_after_tax(bctc)
-    st.plotly_chart(fig9,use_container_width=True)
     col1, col2 = st.columns(2)
     with col1:
         sector_counts = df_info['Sector'].value_counts()
@@ -590,10 +591,14 @@ def phan_tich_cp(code,cstc,years):
         with lctt:
             st.table(df_lctt)
 
-def preprocess_industry_data(industry_data):
-    industry_data = industry_data.loc[["Vốn hóa (tỷ)", "Giá", "P/E", "ROE", "P/B", "ROA",'rs']]
+def preprocess_industry_data():
+    df1 = industry_analysis("VNM", lang="vi")
+    df2 = industry_analysis("MCH", lang="vi")
+    industry_data = df1.copy()
+    industry_data['VNM'] = df2['VNM']
+    industry_data = industry_data.loc[["Vốn hóa (tỷ)", "Giá", "P/E", "ROE", "P/B", "ROA"]]
     industry_data = industry_data.transpose().reset_index()
-    industry_data.columns = ["Mã CP", "Vốn hóa (tỷ)", "Giá", "P/E", "ROE", "P/B", "ROA",'rs']
+    industry_data.columns = ["Mã CP", "Vốn hóa (tỷ)", "Giá", "P/E", "ROE", "P/B", "ROA"]
     industry_data["ROE"] *= 100
     industry_data["ROA"] *= 100
     industry_data['Vốn hóa (tỷ)'] = pd.to_numeric(industry_data['Vốn hóa (tỷ)'], errors='coerce')
@@ -714,7 +719,6 @@ def plot_rsi_chart(data):
         xaxis_title='Date',
         yaxis_title='RSI',
         showlegend=True,
-        plot_bgcolor='white',
         hovermode='x unified'
     )
 
@@ -779,7 +783,7 @@ def plot_macd_chart(data):
         title="MACD Chart",
         xaxis_title='Date',
         yaxis_title='MACD',
-        showlegend=True, plot_bgcolor='white', hovermode='x unified',
+        showlegend=True, hovermode='x unified',
     )
 
     # Thêm thanh trượt thời gian và nút chọn khoảng thời gian
@@ -1134,7 +1138,6 @@ def plot_profit_structure(df_kqkd,cstc):
         xaxis_title='Năm',
         barmode='group',  # Hiển thị các cột nhóm
         hovermode='x',  # Tương tác khi di chuyển chuột theo chiều ngang
-        hoverlabel=dict(bgcolor='white', font_size=12),  # Tùy chỉnh giao diện tooltip
         yaxis2=dict(
             overlaying='y',
             side='right',
@@ -1212,8 +1215,8 @@ def plot_financial_ratios(cstc):
         title='ROE-ROA',
         xaxis_title='Năm',
         barmode='group',  # Hiển thị các cột nhóm
-        hovermode='x',  # Tương tác khi di chuyển chuột theo chiều ngang
-        hoverlabel=dict(bgcolor='white', font_size=12)) # Tùy chỉnh giao diện tooltip
+        hovermode='x')  # Tương tác khi di chuyển chuột theo chiều ngang
+     # Tùy chỉnh giao diện tooltip
     # Hiển thị biểu đồ
     return fig
 
@@ -1236,10 +1239,7 @@ def plot_operating_efficiency(cstc):
         yaxis_title='Số ngày',
         legend_title='Chỉ số',
         barmode='group',  # Hiển thị các cột nhóm
-        hovermode='x',  # Tương tác khi di chuyển chuột theo chiều ngang
-        hoverlabel=dict(bgcolor='white', font_size=12),
-    )
-
+        hovermode='x')  # Tương tác khi di chuyển chuột theo chiều ngang
     # Hiển thị biểu đồ
     return fig
 def plot_leverage_ratios(cstc):
@@ -1260,7 +1260,6 @@ def plot_leverage_ratios(cstc):
         xaxis_title='Năm',
         barmode='group',  # Hiển thị các cột nhóm
         hovermode='x',  # Tương tác khi di chuyển chuột theo chiều ngang
-        hoverlabel=dict(bgcolor='white', font_size=12),
         yaxis2=dict(
             overlaying='y',
             side='right',
@@ -1290,7 +1289,6 @@ def plot_pe_ratio(cstc):
         xaxis_title='Năm',
         barmode='group',  # Hiển thị các cột nhóm
         hovermode='x',  # Tương tác khi di chuyển chuột theo chiều ngang
-        hoverlabel=dict(bgcolor='white', font_size=12),
         yaxis2=dict(
             overlaying='y',
             side='right',
@@ -1319,7 +1317,6 @@ def plot_pb_ratio(cstc):
         xaxis_title='Năm',
         barmode='group',  # Hiển thị các cột nhóm
         hovermode='x',  # Tương tác khi di chuyển chuột theo chiều ngang
-        hoverlabel=dict(bgcolor='white', font_size=12),
         yaxis2=dict(
             overlaying='y',
             side='right',
