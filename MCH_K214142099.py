@@ -1,11 +1,11 @@
 import streamlit as st
 import plotly.graph_objects as go
 import plotly.express as px
-from vnstock import (stock_screening_insights,stock_evaluation,general_rating,industry_analysis, valuation_rating,
-financial_health_rating, biz_model_rating,company_officers, company_subsidiaries_listing, company_large_shareholders,biz_operation_rating)
+from vnstock import*
 import pandas as pd
 from PIL import Image
 import ta
+
 
 st.set_page_config(page_title="Stock Dashboard", page_icon="📈", layout="wide")
 
@@ -23,6 +23,57 @@ def load_and_clean_sheet(file_path):
     sheet.columns = sheet.iloc[0]
     sheet = sheet.iloc[1:]
     return sheet
+def convert_cstc_data(ticker, frequency='yearly', transpose=True):
+    # Lấy dữ liệu và chuyển vị
+    lee = financial_ratio(ticker, frequency, transpose)
+    cstc = lee.transpose()
+    # Tạo từ điển ánh xạ tên cũ sang tên mới
+    name_mapping = {
+        'ticker': 'Mã cổ phiếu',
+        'priceToEarning': 'P/E',
+        'priceToBook': 'P/B',
+        'valueBeforeEbitda': 'EV/EBITDA',
+        'roe': 'ROE',
+        'roa': 'ROA',
+        'daysReceivable': 'Số ngày phải thu',
+        'daysInventory': 'Số ngày tồn kho',
+        'daysPayable': 'Số ngày phải trả',
+        'ebitOnInterest': 'EBIT',
+        'earningPerShare': 'EPS',
+        'bookValuePerShare': 'BVPS',
+        'equityOnTotalAsset': 'Vốn chủ sở hữu trên tổng tài sản',
+        'equityOnLiability': 'Vốn chủ sở hữu trên nghĩa vụ',
+        'currentPayment': 'Thanh toán ngắn hạn',
+        'quickPayment': 'Thanh toán nhanh',
+        'epsChange': 'Thay đổi EPS',
+        'ebitdaOnStock': 'EBITDA trên cổ phiếu',
+        'grossProfitMargin': 'Biên lợi nhuận gộp',
+        'operatingProfitMargin': 'Biên lợi nhuận hoạt động',
+        'postTaxMargin': 'Biên lợi nhuận sau thuế',
+        'debtOnEquity': 'Nợ trên vốn chủ sở hữu',
+        'debtOnAsset': 'Nợ trên tài sản',
+        'debtOnEbitda': 'Nợ trên EBITDA',
+        'shortOnLongDebt': 'Nợ ngắn hạn trên nợ dài hạn',
+        'assetOnEquity': 'Tài sản trên vốn chủ sở hữu',
+        'capitalBalance': 'Số dư vốn',
+        'cashOnEquity': 'Tiền mặt trên vốn chủ sở hữu',
+        'cashOnCapitalize': 'Tiền mặt trên vốn hóa',
+        'cashCirculation': 'Lưu chuyển tiền mặt',
+        'revenueOnWorkCapital': 'Doanh thu trên vốn lưu động',
+        'capexOnFixedAsset': 'Chi phí cố định trên tài sản cố định',
+        'revenueOnAsset': 'Doanh thu trên tài sản',
+        'postTaxOnPreTax': 'Sau thuế trên trước thuế',
+        'ebitOnRevenue': 'EBIT trên doanh thu',
+        'preTaxOnEbit': 'Trước thuế trên EBIT',
+        'payableOnEquity': 'Phải trả trên vốn chủ sở hữu',
+        'ebitdaOnStockChange': 'Thay đổi EBITDA trên cổ phiếu',
+        'bookValuePerShareChange': 'Thay đổi giá trị sổ sách trên cổ phiếu',
+    }
+
+    # Đổi tên các cột theo từ điển
+    cstc = cstc.rename(columns=name_mapping)
+
+    return cstc
 
 def filter_data(dt, industry, year):
     dt = dt.iloc[:, 1:]
@@ -97,6 +148,7 @@ def main():
     avg_von = bank_bctc.groupby('MÃ')['CĐKT. VỐN CHỦ SỞ HỮU'].mean()
     top_10 = avg_von.nlargest(10)
     bctc = bank_bctc[bank_bctc['MÃ'].isin(top_10.index)]
+    cstc = convert_cstc_data(code, 'yearly', True)
     params = {
         "exchangeName": "HOSE,HNX,UPCOM",
         "epsGrowth1Year": (0, 1000000),
@@ -149,7 +201,7 @@ def main():
     if options == 'Phân tích ngành':
             phan_tich_nganh(df_info,bctc)
     elif options == 'Phân tích cổ phiếu':
-            phan_tich_cp(code,bctc)
+            phan_tich_cp(code,cstc)
 # Trang phân tích ngành
 def phan_tich_nganh(df_info,bctc):
     # Áp dụng bộ lọc với hàm để lấy kết quả
@@ -173,32 +225,36 @@ def phan_tich_nganh(df_info,bctc):
 
     nganh = industry_analysis('MCH', lang="vi")
     d1 = preprocess_industry_data(nganh)
-    d1.columns = ['Mã CP', 'Vốn hóa(tỷ)', 'Giá', 'P/B', 'ROE', 'P/E', 'ROA']
+    d1.columns = ['Mã CP', 'Vốn hóa(tỷ)', 'Giá', 'P/B', 'ROE', 'P/E', 'ROA','rs']
     # Chọn giá trị cho x và y từ người dùng
     selected_x = st.selectbox('Chọn giá trị cho trục x:', ['ROE', 'ROA'])
     selected_y = st.selectbox('Chọn giá trị cho trục y:', ['P/B', 'P/E'])
-
-    # Tạo biểu đồ dựa trên lựa chọn của người dùng
-    fig = px.scatter(
+    u1,u2 = st.columns((7,3))
+    with u1:
+        # Tạo biểu đồ dựa trên lựa chọn của người dùng
+        fig = px.scatter(
         d1, x=selected_x, y=selected_y, size="Vốn hóa(tỷ)", text="Mã CP",
-        color="Vốn hóa(tỷ)", color_continuous_scale="Rainbow", size_max=120,
-        hover_name="Mã CP", hover_data={selected_x: True, selected_y: True, "Vốn hóa(tỷ)": True, "Mã CP": False}
-    )
+        color="Vốn hóa(tỷ)", color_continuous_scale="icefire", size_max=120,
+        hover_name="Mã CP", hover_data={selected_x: True, selected_y: True, "Vốn hóa(tỷ)": True, "Mã CP": False})
     # Update layout
-    fig.update_layout(
+        fig.update_layout(
         title=f'So sánh tương quan - {selected_x} vs {selected_y}',
         xaxis=dict(title=f'{selected_x}'),
         yaxis=dict(title=f'{selected_y}'),
-        showlegend=False,
-        plot_bgcolor='white'
-    )
-    # Hiển thị biểu đồ
-    st.plotly_chart(fig, use_container_width=True)
+        showlegend=False)
+        st.plotly_chart(fig, use_container_width=True)
+    with u2:
+        st.dataframe(d1)
     st.write('So với các cổ phiếu cùng ngành khác, MCH có những điểm nổi bật sau:'
              '\n - MCH có hiệu quả sử dụng vốn chủ sở hữu và tổng tài sản tốt nhất. Điều này cho thấy công ty này có khả năng tạo ra lợi nhuận cao từ vốn và tài sản của mình.'
              '\n - MCH có tiềm năng tăng trưởng cao. Điều này được thể hiện qua giá trị PE thấp của cổ phiếu.'
              )
-
+    fig7 = plot_revenue_comparison(bctc)
+    st.plotly_chart(fig7)
+    fig8 = plot_equity(bctc)
+    st.plotly_chart(fig8)
+    fig9 = plot_profit_after_tax(bctc)
+    st.plotly_chart(fig9)
     col1, col2 = st.columns(2)
     with col1:
         sector_counts = df_info['Sector'].value_counts()
@@ -213,7 +269,7 @@ def phan_tich_nganh(df_info,bctc):
         fig_exchange.update_layout(title='Number of Stocks by Exchange')
         st.plotly_chart(fig_exchange, use_container_width=True)
 #Trang phân tích cổ phiếu
-def phan_tich_cp(code,bctc):
+def phan_tich_cp(code,cstc):
     #code = st.text_input('Enter stock code (Example: MCH):').upper()
     data_dict = load_data(file_path)
     stock_info, stock_price, stock_volume = prepare_data(data_dict, code)
@@ -266,7 +322,7 @@ def phan_tich_cp(code,bctc):
         # Hiển thị biểu đồ
         st.plotly_chart(fig, use_container_width=True)
 
-    t1,t2,t3,t4,t5,t6 = st.tabs(["Tổng quan",'Phân tích 360','Phân tích kĩ thuật','Tài chính','Hồ sơ','Cổ đông'])
+    t1,t2,t3,t4,t5,t6 = st.tabs(["Tổng quan",'Phân tích 360','Phân tích kĩ thuật','Tài chính','Hồ sơ','Dữ liệu'])
     # Retrieve data based on the stock symbol
     with t1:
         data = general_rating(code)
@@ -358,14 +414,19 @@ def phan_tich_cp(code,bctc):
             ' Nguyên nhân có thể là do MCH là một công ty mới thành lập, nhưng có tốc độ tăng trưởng nhanh chóng, tiềm năng tăng trưởng cao và có thương hiệu mạnh.',
             ' Tuy nhiên, nhà đầu tư cần cân nhắc kỹ lưỡng các yếu tố rủi ro tiềm ẩn trước khi quyết định đầu tư vào MCH, bao gồm:',
             '\n -  MCH là một công ty mới thành lập, chưa có nhiều kinh nghiệm.',
-            '\n -  MCH đang phải đối mặt với sự cạnh tranh gay gắt từ các công ty cùng ngành.'
-        )
-        fig7 = plot_revenue_comparison(bctc)
-        st.plotly_chart(fig7)
-        fig8 = plot_equity(bctc)
-        st.plotly_chart(fig8)
-        fig9 = plot_profit_after_tax(bctc)
-        st.plotly_chart(fig9)
+            '\n -  MCH đang phải đối mặt với sự cạnh tranh gay gắt từ các công ty cùng ngành.')
+        # Sử dụng hàm với dữ liệu cstc
+        cot1,cot2 = st.columns(2)
+        with cot1:
+            st.plotly_chart(plot_financial_ratios(cstc))
+            st.plotly_chart(plot_pe_ratio(cstc))
+            st.plotly_chart(plot_pb_ratio(cstc))
+            st.plotly_chart(plot_gross_profit_margin(df_kqkd))
+        with cot2:
+            st.plotly_chart(plot_operating_efficiency(cstc))
+            st.plotly_chart(plot_leverage_ratios(cstc))
+            st.plotly_chart(dupont_analysis_plot(cstc))
+            st.plotly_chart(plot_profit_structure(df_kqkd, cstc))
 
     with t3:
         start_date = pd.to_datetime(df["Date"]).min()
@@ -441,21 +502,32 @@ def phan_tich_cp(code,bctc):
         expander.write(selected_data)
 
     with t4:
-        fig1 = plot_accounting_balance(df_cdkto)
-        st.plotly_chart(fig1)
-        fig2 = plot_business_results(df_kqkd)
-        st.plotly_chart(fig2)
-        fig3 = plot_cash_flow(df_lctt)
-        st.plotly_chart(fig3)
-        fig4= plot_capital_structure(df_cdkto)
-        st.plotly_chart(fig4)
-        fig5 = plot_asset_structure(df_cdkto)
-        st.plotly_chart(fig5)
-        fig10 = plot_profit_structure(df_kqkd)
-        st.plotly_chart(fig10)
-        fig6 = plot_gross_profit_margin(df_kqkd)
-        st.plotly_chart(fig6)
+        h1,h2 = st.columns(2)
+        with h1:
+            fig4 = plot_capital_structure(df_cdkto)  # Nguồn vốn
+            st.plotly_chart(fig4)
+        with h2:
+            fig5 = plot_asset_structure(df_cdkto)  # Tài sản
+            st.plotly_chart(fig5)
 
+        fig1 = plot_accounting_balance(df_cdkto,cstc)#Cân đối kế toán
+        st.plotly_chart(fig1)
+        col_cdkt = ['Năm','CĐKT. NỢ PHẢI TRẢ', 'CĐKT. TỔNG CỘNG TÀI SẢN', 'CĐKT. VỐN CHỦ SỞ HỮU']
+        st.write(df_cdkto[col_cdkt])
+
+        fig2 = plot_business_results(df_kqkd)#Kết quả kinh doanh
+        st.plotly_chart(fig2)
+        col_kqkd = ['Năm', 'KQKD. Doanh thu thuần', 'KQKD. Lợi nhuận gộp về bán hàng và cung cấp dịch vụ',
+                            'KQKD. Lợi nhuận thuần từ hoạt động kinh doanh',
+                            'KQKD. Lợi nhuận sau thuế thu nhập doanh nghiệp']
+        st.write(df_kqkd[col_kqkd])
+
+        fig3 = plot_cash_flow(df_lctt)#Dòng tiền
+        st.plotly_chart(fig3)
+        col_lctt = ['Năm', 'LCTT. Lưu chuyển tiền tệ ròng từ các hoạt động sản xuất kinh doanh (TT)'
+        ,'LCTT. Lưu chuyển tiền tệ từ hoạt động tài chính (TT)','LCTT. Lưu chuyển tiền tệ ròng từ hoạt động đầu tư (TT)',
+        'LCTT. Tiền và tương đương tiền cuối kỳ (TT)']
+        st.write(df_lctt[col_lctt])
 
 
 
@@ -493,27 +565,28 @@ def phan_tich_cp(code,bctc):
             df_new['officerOwnPercent'] = df_new['officerOwnPercent'] * 100  # Chuyển đổi về đơn vị %
             # Đổi tên cột
             y = df_new.rename(columns={'officerName': 'Ban lãnh đạo', 'officerOwnPercent': 'Tỷ lệ CP (%)'})
-            st.checkbox("Chi tiết", value=False, key="co2_checkbox")
-            st.dataframe(y, use_container_width=st.session_state.co2_checkbox)
+            st.table(y)
 
             cty_con = company_subsidiaries_listing(symbol=code, page_size=100, page=0)
             x = cty_con.rename(columns={'subCompanyName': 'Công ty con', 'subOwnPercent': 'Tỷ lệ (%) sở hữu'}).drop(
                 'ticker',
                 axis=1)
             x['Tỷ lệ (%) sở hữu'] = x['Tỷ lệ (%) sở hữu'] * 100
-            st.checkbox("Chi tiết", value=False, key="co1_checkbox")
-            st.dataframe(x, use_container_width=st.session_state.co1_checkbox)
+            st.table(x)
 
     with t6:
-        co_dong = company_large_shareholders(symbol=code)
-        z = co_dong.rename(columns={'shareHolder': 'Cổ đông', 'shareOwnPercent': 'Tỷ lệ(%)'}).drop('ticker', axis=1)
-        z['Tỷ lệ(%)'] = z['Tỷ lệ(%)'] * 100  # Chuyển đổi về đơn vị %
-        st.checkbox("Chi tiết", value=False, key="t5_checkbox")
-        st.dataframe(z, use_container_width=st.session_state.t5_checkbox)
+        cdkt,kqkd,lctt =st.tabs(["Bảng cân đối kế toán",'Báo cáo kết quả kinh doanh','Báo cáo lưu  tiền tệ'])
+        with cdkt:
+            st.write(df_cdkto)
+        with kqkd:
+            st.table(df_kqkd)
+        with lctt:
+            st.dataframe(df_lctt)
+
 def preprocess_industry_data(industry_data):
-    industry_data = industry_data.loc[["Vốn hóa (tỷ)", "Giá", "P/E", "ROE", "P/B", "ROA"]]
+    industry_data = industry_data.loc[["Vốn hóa (tỷ)", "Giá", "P/E", "ROE", "P/B", "ROA",'rs']]
     industry_data = industry_data.transpose().reset_index()
-    industry_data.columns = ["Mã CP", "Vốn hóa (tỷ)", "Giá", "P/E", "ROE", "P/B", "ROA"]
+    industry_data.columns = ["Mã CP", "Vốn hóa (tỷ)", "Giá", "P/E", "ROE", "P/B", "ROA",'rs']
     industry_data["ROE"] *= 100
     industry_data["ROA"] *= 100
     industry_data['Vốn hóa (tỷ)'] = pd.to_numeric(industry_data['Vốn hóa (tỷ)'], errors='coerce')
@@ -763,35 +836,30 @@ def radar_chart(df, title, color_sequence):
     return fig
 def display_radar_chart(df, title, color_sequence):
     st.plotly_chart(radar_chart(df, title, color_sequence))
-#OK
-def plot_accounting_balance(df):
-    # Your plotting logic here
-    colors = ['rgb(200,50, 50)', 'rgb(50, 200,10)', 'rgb(10, 60, 200)']
-    # Tạo dữ liệu cho các cột nhóm với màu pastel
-    data = [
-        go.Bar(
-            name='Tổng tài sản',
-            x=df['Năm'],
-            y=df['CĐKT. TỔNG CỘNG TÀI SẢN'],
-            marker_color=colors[0]
-        ),
-        go.Bar(
-            name='Vốn chủ sở hữu',
-            x=df['Năm'],
-            y=df['CĐKT. VỐN CHỦ SỞ HỮU'],
-            marker_color=colors[2]
-        )]
-    layout = go.Layout(
-        title='CÂN ĐỐI KẾ TOÁN',
-        xaxis=dict(title='Giá trị (đồng)'),
-        yaxis=dict(title='Năm'),
-        barmode='group'
-    )
-    # Tạo đối tượng Figure và thêm dữ liệu và layout vào
-    fig = go.Figure(data=data, layout=layout)
 
-    return fig#OK
-#OK
+def plot_accounting_balance(df,cstc):
+    fig = go.Figure()
+    fig.add_trace(go.Bar(x=df['Năm'], y=df['CĐKT. TỔNG CỘNG TÀI SẢN'], name='Tổng tài sản',
+                         marker_color=px.colors.qualitative.Plotly[6]))
+    fig.add_trace(
+        go.Scatter(x=cstc.index, y=cstc['Nợ trên tài sản'], mode='lines+markers', name='Tỉ lệ nợ trên tài sản',
+                   yaxis='y2', marker_color=px.colors.qualitative.Plotly[9]))
+    fig.add_trace(go.Bar(x=df['Năm'], y=df['CĐKT. VỐN CHỦ SỞ HỮU'], name='Vốn chủ sở hữu',
+                         marker_color=px.colors.qualitative.Plotly[2]))
+
+    fig.update_layout(
+        title='CÂN ĐỐI KẾ TOÁN',
+        xaxis_title='Năm',
+        barmode='group',
+        hovermode='x',
+        yaxis2=dict(
+            overlaying='y',
+            side='right',
+            showgrid=False,
+            showline=False,
+            zeroline=False,
+            showticklabels=True))
+    return fig
 def plot_business_results(df):
     # Tạo bảng màu pastel
     colors = ['rgb(250,50, 50)', 'rgb(0, 200,0)']
@@ -821,7 +889,7 @@ def plot_business_results(df):
     fig = go.Figure(data=data, layout=layout)
 
     return fig#OK
-#OK
+
 def plot_cash_flow(df):
     # Tạo bảng màu pastel
     colors = ['rgb(250,50, 50)', 'rgb(0, 200,0)', 'rgb(50, 50, 255)']
@@ -856,7 +924,6 @@ def plot_cash_flow(df):
     fig = go.Figure(data=data, layout=layout)
 
     return fig
-
 
 def plot_capital_structure(df_cdkto):
     df_melted = pd.melt(df_cdkto, id_vars=['Năm'], value_vars=[
@@ -902,7 +969,7 @@ def plot_capital_structure(df_cdkto):
         xaxis_tickmode='linear',
         xaxis_title='Năm',
         yaxis_title='Giá trị (tỷ đồng)',
-        title='Cơ Cấu Nguồn vốn',
+        title='NGUỒN VỐN',
         updatemenus=[
             dict(
                 active=0,
@@ -965,7 +1032,7 @@ def plot_asset_structure(df_cdkto):
         xaxis_tickmode='linear',
         xaxis_title='Năm',
         yaxis_title='Giá trị (tỷ đồng)',
-        title='Cơ Cấu Tài Sản',
+        title='TÀI SẢN',
         updatemenus=[
             dict(
                 active=0,
@@ -1002,7 +1069,7 @@ def plot_gross_profit_margin(data):
         x=data['Năm'],
         y=data['KQKD. Lợi nhuận gộp về bán hàng và cung cấp dịch vụ'],
         name='Lợi nhuận gộp',
-        marker=dict(color='rgb(255, 204, 204)')
+        marker=dict(color='rgb(255, 150, 150)')
     ))
 
     # Biểu đồ đường cho Biên lợi nhuận gộp
@@ -1030,52 +1097,46 @@ def plot_gross_profit_margin(data):
 
     return fig
 
-
-def plot_profit_structure(data):
-    # Tạo biểu đồ cột
+def plot_profit_structure(df_kqkd,cstc):
+    # Tạo figure
     fig = go.Figure()
 
-    # Thêm các cột vào biểu đồ
-    fig.add_trace(go.Bar(
-        x=data['Năm'],
-        y=data['KQKD. Lợi nhuận gộp về bán hàng và cung cấp dịch vụ'],
-        name='Lợi nhuận gộp',
-        marker=dict(color='rgb(180, 235, 253)')
-    ))
+    # Thêm cột cho lợi nhuận gộp, lợi nhuận từ hoạt động kinh doanh và lợi nhuận sau thuế
+    fig.add_trace(go.Bar(x=df_kqkd['Năm'], y=df_kqkd['KQKD. Lợi nhuận gộp về bán hàng và cung cấp dịch vụ'],
+                         name='Lợi nhuận gộp', marker_color=px.colors.qualitative.Plotly[1]))
+    fig.add_trace(go.Bar(x=df_kqkd['Năm'], y=df_kqkd['KQKD. Lợi nhuận thuần từ hoạt động kinh doanh'],
+                         name='Lợi nhuận từ hoạt động kinh doanh', marker_color=px.colors.qualitative.Plotly[2]))
+    fig.add_trace(go.Bar(x=df_kqkd['Năm'], y=df_kqkd['KQKD. Lợi nhuận sau thuế thu nhập doanh nghiệp'],
+                         name='Lợi nhuận sau thuế', marker_color=px.colors.qualitative.Plotly[4]))
 
-    fig.add_trace(go.Bar(
-        x=data['Năm'],
-        y=data['KQKD. Doanh thu hoạt động tài chính'],
-        name='Lợi nhuận từ hoạt động tài chính',
-        marker=dict(color='rgb(255, 204, 204)')
-    ))
+    # Thêm đường cho biên lợi nhuận gộp, hoạt động kinh doanh và sau thuế
+    fig.add_trace(
+        go.Scatter(x=cstc.index, y=cstc['Biên lợi nhuận gộp'], mode='lines+markers', name='Biên lợi nhuận gộp',
+                   yaxis='y2',
+                   marker_color=px.colors.qualitative.Plotly[9]))
+    fig.add_trace(go.Scatter(x=cstc.index, y=cstc['Biên lợi nhuận hoạt động'], mode='lines+markers',
+                             name='Biên lợi nhuận hoạt động kinh doanh', yaxis='y2',
+                             marker_color=px.colors.qualitative.Plotly[7]))
+    fig.add_trace(go.Scatter(x=cstc.index, y=cstc['Biên lợi nhuận sau thuế'], mode='lines+markers',
+                             name='Biên lợi nhuận sau thuế', yaxis='y2',
+                             marker_color=px.colors.qualitative.Plotly[8]))
 
-    fig.add_trace(go.Bar(
-        x=data['Năm'],
-        y=data['KQKD. Lợi nhuận khác'],
-        name='Lợi nhuận khác',
-        marker=dict(color='rgb(204, 255, 204)')
-    ))
-
-    fig.add_trace(go.Bar(
-        x=data['Năm'],
-        y=data['KQKD. Lợi nhuận sau thuế thu nhập doanh nghiệp'],
-        name='Lợi nhuận sau thuế',
-        marker=dict(color='rgb(255, 255, 204)')
-    ))
-
-    # Cập nhật layout của biểu đồ
+    # Tùy chỉnh layout
     fig.update_layout(
-        title='CƠ CẤU LỢI NHUẬN',
-        xaxis=dict(title='Năm'),
-        yaxis=dict(title='Lợi nhuận (tỷ đồng)'),
-        yaxis2=dict(title='Tăng trưởng (%)', overlaying='y', side='right')
-    )
-
+        title='BIÊN LỢI NHUẬN',
+        xaxis_title='Năm',
+        barmode='group',  # Hiển thị các cột nhóm
+        hovermode='x',  # Tương tác khi di chuyển chuột theo chiều ngang
+        hoverlabel=dict(bgcolor='white', font_size=12),  # Tùy chỉnh giao diện tooltip
+        yaxis2=dict(
+            overlaying='y',
+            side='right',
+            showgrid=False,
+            showline=False,
+            zeroline=False,
+            showticklabels=True))
     return fig
 
-
-#3CAI NÀY OK HẾT
 def plot_profit_after_tax(df):
     # Tạo biểu đồ tương tác
     fig = go.Figure()
@@ -1122,11 +1183,180 @@ def plot_revenue_comparison(dataframe):
 
     # Cập nhật layout của biểu đồ
     fig.update_layout(
-        title='So sánh Doanh thu thuần của các cổ phiếu trong ngành xây dựng',
+        title='So sánh Doanh thu thuần của các cổ phiếu trong ngành thực phẩm',
         xaxis=dict(title='Năm'),
         yaxis=dict(title='Doanh thu thuần'),
         barmode='group',
         legend=dict(orientation='h', yanchor='top', y=-0.15)
+    )
+
+    # Hiển thị biểu đồ
+    return fig
+def plot_financial_ratios(cstc):
+    # Tạo figure với plotly graph_objects
+    fig = go.Figure()
+
+    # Thêm cột cho ROA và ROE
+    fig.add_trace(go.Bar(x=cstc.index, y=cstc['ROA']*100, name='ROA', marker_color=px.colors.qualitative.Plotly[8]))
+    fig.add_trace(go.Bar(x=cstc.index, y=cstc['ROE']*100, name='ROE', marker_color=px.colors.qualitative.Plotly[2]))
+
+    # Tùy chỉnh layout
+    fig.update_layout(
+        title='ROE-ROA',
+        xaxis_title='Năm',
+        barmode='group',  # Hiển thị các cột nhóm
+        hovermode='x',  # Tương tác khi di chuyển chuột theo chiều ngang
+        hoverlabel=dict(bgcolor='white', font_size=12)) # Tùy chỉnh giao diện tooltip
+    # Hiển thị biểu đồ
+    return fig
+
+def plot_operating_efficiency(cstc):
+    # Tạo figure
+    fig = go.Figure()
+
+    # Thêm cột cho Lưu chuyển tiền mặt
+    fig.add_trace(go.Bar(x=cstc.index, y=cstc['Lưu chuyển tiền mặt'], name='Lưu chuyển tiền mặt', marker_color=px.colors.qualitative.Plotly[1]))
+
+    # Thêm đường cho các chỉ số Số ngày phải thu, Số ngày tồn kho, Số ngày phải trả
+    fig.add_trace(go.Scatter(x=cstc.index, y=cstc['Số ngày phải thu'], mode='lines+markers', name='Phải thu', marker_color=px.colors.qualitative.Plotly[2]))
+    fig.add_trace(go.Scatter(x=cstc.index, y=cstc['Số ngày tồn kho'], mode='lines+markers', name='Tồn kho', marker_color=px.colors.qualitative.Plotly[3]))
+    fig.add_trace(go.Scatter(x=cstc.index, y=cstc['Số ngày phải trả'], mode='lines+markers', name='Phải trả', marker_color=px.colors.qualitative.Plotly[4]))
+
+    # Tùy chỉnh layout
+    fig.update_layout(
+        title='HIỆU QUẢ HOẠT ĐỘNG',
+        xaxis_title='Năm',
+        yaxis_title='Số ngày',
+        legend_title='Chỉ số',
+        barmode='group',  # Hiển thị các cột nhóm
+        hovermode='x',  # Tương tác khi di chuyển chuột theo chiều ngang
+        hoverlabel=dict(bgcolor='white', font_size=12),
+    )
+
+    # Hiển thị biểu đồ
+    return fig
+def plot_leverage_ratios(cstc):
+    # Tạo figure
+    fig = go.Figure()
+
+    # Thêm cột cho Nợ/VCSH và TS/VCSH
+    fig.add_trace(go.Bar(x=cstc.index, y=cstc['Nợ trên vốn chủ sở hữu'], name='Nợ/VCSH', marker_color=px.colors.qualitative.Plotly[4]))
+    fig.add_trace(go.Bar(x=cstc.index, y=cstc['Tài sản trên vốn chủ sở hữu'], name='TS/VCSH', marker_color=px.colors.qualitative.Plotly[5]))
+
+    # Thêm đường cho Nợ/TS và Nợ ngắn hạn/Nợ dài hạn
+    fig.add_trace(go.Scatter(x=cstc.index, y=cstc['Nợ trên tài sản'], mode='lines+markers', name='Nợ/TS', marker_color=px.colors.qualitative.Plotly[6]))
+    fig.add_trace(go.Scatter(x=cstc.index, y=cstc['Nợ ngắn hạn trên nợ dài hạn'], mode='lines+markers', name='Nợ ngắn hạn/Nợ dài hạn', yaxis='y2', marker_color=px.colors.qualitative.Plotly[7]))
+
+    # Tùy chỉnh layout
+    fig.update_layout(
+        title='HỆ SỐ ĐÒN BẨY',
+        xaxis_title='Năm',
+        barmode='group',  # Hiển thị các cột nhóm
+        hovermode='x',  # Tương tác khi di chuyển chuột theo chiều ngang
+        hoverlabel=dict(bgcolor='white', font_size=12),
+        yaxis2=dict(
+            overlaying='y',
+            side='right',
+            showgrid=False,
+            showline=False,
+            zeroline=False,
+            showticklabels=True,
+        ),
+    )
+
+    # Hiển thị biểu đồ
+    return fig
+
+def plot_pe_ratio(cstc):
+    # Tạo figure
+    fig = go.Figure()
+
+    # Thêm cột cho EPS
+    fig.add_trace(go.Bar(x=cstc.index, y=cstc['EPS'], name='EPS', marker_color=px.colors.qualitative.Plotly[6]))
+
+    # Thêm đường cho P/E
+    fig.add_trace(go.Scatter(x=cstc.index, y=cstc['P/E'], mode='lines+markers', name='P/E', yaxis='y2', marker_color=px.colors.qualitative.Plotly[1]))
+
+    # Tùy chỉnh layout
+    fig.update_layout(
+        title='CHỈ SỐ ĐỊNH GIÁ P/E',
+        xaxis_title='Năm',
+        barmode='group',  # Hiển thị các cột nhóm
+        hovermode='x',  # Tương tác khi di chuyển chuột theo chiều ngang
+        hoverlabel=dict(bgcolor='white', font_size=12),
+        yaxis2=dict(
+            overlaying='y',
+            side='right',
+            showgrid=False,
+            showline=False,
+            zeroline=False,
+            showticklabels=True,
+        ),
+    )
+
+    # Hiển thị biểu đồ
+    return fig
+def plot_pb_ratio(cstc):
+    # Tạo figure
+    fig = go.Figure()
+
+    # Thêm cột cho BVPS
+    fig.add_trace(go.Bar(x=cstc.index, y=cstc['BVPS'], name='BVPS', marker_color=px.colors.qualitative.Plotly[5]))
+
+    # Thêm đường cho P/B
+    fig.add_trace(go.Scatter(x=cstc.index, y=cstc['P/B'], mode='lines+markers', name='P/B', yaxis='y2', marker_color=px.colors.qualitative.Plotly[2]))
+
+    # Tùy chỉnh layout
+    fig.update_layout(
+        title='CHỈ SỐ ĐỊNH GIÁ P/B',
+        xaxis_title='Năm',
+        barmode='group',  # Hiển thị các cột nhóm
+        hovermode='x',  # Tương tác khi di chuyển chuột theo chiều ngang
+        hoverlabel=dict(bgcolor='white', font_size=12),
+        yaxis2=dict(
+            overlaying='y',
+            side='right',
+            showgrid=False,
+            showline=False,
+            zeroline=False,
+            showticklabels=True,
+        ),
+    )
+
+    # Hiển thị biểu đồ
+    return fig
+
+def dupont_analysis_plot(cstc):
+    # Tính toán vòng quay tài sản
+    cstc['vòng quay tài sản'] = 365 / (cstc['Số ngày phải thu'] - cstc['Số ngày phải trả'] + cstc['Số ngày tồn kho'])
+
+    # Tạo figure với plotly graph_objects
+    fig = go.Figure()
+
+    # Thêm các trace cho biểu đồ
+    fig.add_trace(go.Scatter(x=cstc.index, y=cstc['Biên lợi nhuận sau thuế'] * 100, mode='lines+markers', yaxis='y2',
+                             name='Biên lợi nhuận ròng(%)', marker_color=px.colors.qualitative.Plotly[6]))
+    fig.add_trace(go.Scatter(x=cstc.index, y=cstc['Tài sản trên vốn chủ sở hữu'], name='Đòn bẩy tài chính', yaxis='y2',
+                             marker_color=px.colors.qualitative.Plotly[9]))
+    fig.add_trace(go.Scatter(x=cstc.index, y=cstc['vòng quay tài sản'], name='Vòng quay tài sản',
+                             marker_color=px.colors.qualitative.Plotly[8]))
+    fig.add_trace(go.Bar(x=cstc.index, y=cstc['ROE'] * 100, name='ROE(%)', yaxis='y2',
+                         marker_color=px.colors.qualitative.Plotly[2]))
+
+    # Tùy chỉnh layout
+    fig.update_layout(
+        title='PHÂN TÍCH DUPONT',
+        xaxis_title='Năm',
+        barmode='group',  # Hiển thị các cột nhóm
+        hovermode='x',  # Tương tác khi di chuyển chuột theo chiều ngang
+        yaxis2=dict(
+            overlaying='y',
+            side='right',
+            showgrid=False,
+            showline=False,
+            zeroline=False,
+            showticklabels=True,
+        ),
     )
 
     # Hiển thị biểu đồ
