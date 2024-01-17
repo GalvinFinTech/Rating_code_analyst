@@ -23,12 +23,17 @@ def load_and_clean_sheet(file_path):
     sheet.columns = sheet.iloc[0]
     sheet = sheet.iloc[1:]
     return sheet
+
+
 def convert_cstc_data(ticker, frequency='yearly', transpose=True):
-    # Lấy dữ liệu và chuyển vị
     lee = financial_ratio(ticker, frequency, transpose)
+    # Transpose the DataFrame
     cstc = lee.transpose()
-    # Tạo từ điển ánh xạ tên cũ sang tên mới
+    # Reset the index
+    cstc.reset_index(inplace=True)
+    # Rename columns based on the mapping
     name_mapping = {
+        'year': 'year',
         'ticker': 'Mã cổ phiếu',
         'priceToEarning': 'P/E',
         'priceToBook': 'P/B',
@@ -69,11 +74,12 @@ def convert_cstc_data(ticker, frequency='yearly', transpose=True):
         'ebitdaOnStockChange': 'Thay đổi EBITDA trên cổ phiếu',
         'bookValuePerShareChange': 'Thay đổi giá trị sổ sách trên cổ phiếu',
     }
-
-    # Đổi tên các cột theo từ điển
     cstc = cstc.rename(columns=name_mapping)
+    # Set 'year' column as the index
+    cstc = cstc.set_index('year')
 
     return cstc
+
 
 def filter_data(dt, industry, year):
     dt = dt.iloc[:, 1:]
@@ -125,7 +131,7 @@ def load_and_process_data(years, code):
         df['Năm'] = df['Năm'].astype(int)
 
     return df_cdkto_all, df_kqkd_all, df_lctt_all
-years = [2018, 2019, 2020, 2021, 2022]
+#years = [2018, 2019, 2020, 2021, 2022]
 def prepare_data(data_dict, code):
     df_info, df_price, df_volume = data_dict
     stock_price = get_stock_data(df_price, code, "close")
@@ -142,6 +148,7 @@ def get_stock_data(data_df, code, value_column):
 def main():
     code = st.text_input('Enter stock code (Example: MCH):').upper()
     industry = 'Thực phẩm'
+    years = [2018, 2019, 2020, 2021, 2022]
     bank_bctc = process_and_concat_data(years, industry)
     rename_columns_and_sort(bank_bctc)
     process_numeric_column(bank_bctc, 'CĐKT. VỐN CHỦ SỞ HỮU')
@@ -164,8 +171,7 @@ def main():
     # Hiển thị tiêu đề và thông tin ở cột trái
     with left_column:
         st.title('MCH')
-        #image = Image.open('/Users/nguyenhoangvi/Downloads/Ứng dụng Python/MCH_K214142099/MCH.jpeg')   
-        image = Image.open('MCH.jpeg')
+        image = Image.open('/Users/nguyenhoangvi/Downloads/Ứng dụng Python/MCH_K214142099/MCH.jpeg')
         st.image(image, caption='CTCP Hàng tiêu dùng Masan')
     with right_column:
         # Display metrics in a single row
@@ -202,7 +208,7 @@ def main():
     if options == 'Phân tích ngành':
             phan_tich_nganh(df_info,bctc)
     elif options == 'Phân tích cổ phiếu':
-            phan_tich_cp(code,cstc)
+            phan_tich_cp(code,cstc,years)
 # Trang phân tích ngành
 def phan_tich_nganh(df_info,bctc):
     # Áp dụng bộ lọc với hàm để lấy kết quả
@@ -235,14 +241,15 @@ def phan_tich_nganh(df_info,bctc):
         # Tạo biểu đồ dựa trên lựa chọn của người dùng
         fig = px.scatter(
         d1, x=selected_x, y=selected_y, size="Vốn hóa(tỷ)", text="Mã CP",
-        color="Vốn hóa(tỷ)", color_continuous_scale="icefire", size_max=120,
+        color="Vốn hóa(tỷ)", color_continuous_scale="Rainbow", size_max=120,
         hover_name="Mã CP", hover_data={selected_x: True, selected_y: True, "Vốn hóa(tỷ)": True, "Mã CP": False})
     # Update layout
         fig.update_layout(
         title=f'So sánh tương quan - {selected_x} vs {selected_y}',
         xaxis=dict(title=f'{selected_x}'),
         yaxis=dict(title=f'{selected_y}'),
-        showlegend=False)
+        showlegend=True, legend=dict(orientation='h', yanchor='top', y=-0.15))
+
         st.plotly_chart(fig, use_container_width=True)
     with u2:
         st.dataframe(d1)
@@ -251,11 +258,11 @@ def phan_tich_nganh(df_info,bctc):
              '\n - MCH có tiềm năng tăng trưởng cao. Điều này được thể hiện qua giá trị PE thấp của cổ phiếu.'
              )
     fig7 = plot_revenue_comparison(bctc)
-    st.plotly_chart(fig7)
+    st.plotly_chart(fig7, use_container_width=True)
     fig8 = plot_equity(bctc)
-    st.plotly_chart(fig8)
+    st.plotly_chart(fig8,use_container_width=True)
     fig9 = plot_profit_after_tax(bctc)
-    st.plotly_chart(fig9)
+    st.plotly_chart(fig9,use_container_width=True)
     col1, col2 = st.columns(2)
     with col1:
         sector_counts = df_info['Sector'].value_counts()
@@ -270,7 +277,7 @@ def phan_tich_nganh(df_info,bctc):
         fig_exchange.update_layout(title='Number of Stocks by Exchange')
         st.plotly_chart(fig_exchange, use_container_width=True)
 #Trang phân tích cổ phiếu
-def phan_tich_cp(code,cstc):
+def phan_tich_cp(code,cstc,years):
     #code = st.text_input('Enter stock code (Example: MCH):').upper()
     data_dict = load_data(file_path)
     stock_info, stock_price, stock_volume = prepare_data(data_dict, code)
@@ -358,7 +365,7 @@ def phan_tich_cp(code,cstc):
 
         # Show the chart
         fig.update_layout(polar=dict(radialaxis=dict(visible=True, range=[0, 5])), showlegend=False)
-        st.plotly_chart(fig)
+        st.plotly_chart(fig, use_container_width=True)                  
         ta1,ta2 = st.columns(2)
         # Example usage
         df4 = valuation_rating("MCH")
@@ -406,9 +413,10 @@ def phan_tich_cp(code,cstc):
         selected_chart = st.radio('Chọn biểu đồ để hiển thị', ['PE', 'PB'])
         # Hiển thị biểu đồ tương ứng với lựa chọn
         if selected_chart == 'PE':
-            st.plotly_chart(fig_pe)
+            st.plotly_chart(fig_pe,use_container_width=True)
+
         elif selected_chart == 'PB':
-            st.plotly_chart(fig_pb)
+            st.plotly_chart(fig_pb,use_container_width=True)
         st.write(
             'Kết luận:',
             ' Nhìn chung, có thể thấy MCH đang được định giá thấp hơn so với các công ty cùng ngành về PE, nhưng đang được định giá cao hơn so với các công ty cùng ngành và so với thị trường về PB.',
@@ -419,15 +427,15 @@ def phan_tich_cp(code,cstc):
         # Sử dụng hàm với dữ liệu cstc
         cot1,cot2 = st.columns(2)
         with cot1:
-            st.plotly_chart(plot_financial_ratios(cstc))
-            st.plotly_chart(plot_pe_ratio(cstc))
-            st.plotly_chart(plot_pb_ratio(cstc))
-            st.plotly_chart(plot_gross_profit_margin(df_kqkd))
+            st.plotly_chart(plot_financial_ratios(cstc),use_container_width=True)
+            st.plotly_chart(plot_pe_ratio(cstc),use_container_width=True)
+            st.plotly_chart(plot_pb_ratio(cstc),use_container_width=True)
+            st.plotly_chart(plot_gross_profit_margin(df_kqkd),use_container_width=True)
         with cot2:
-            st.plotly_chart(plot_operating_efficiency(cstc))
-            st.plotly_chart(plot_leverage_ratios(cstc))
-            st.plotly_chart(dupont_analysis_plot(cstc))
-            st.plotly_chart(plot_profit_structure(df_kqkd, cstc))
+            st.plotly_chart(plot_operating_efficiency(cstc),use_container_width=True)
+            st.plotly_chart(plot_leverage_ratios(cstc),use_container_width=True)
+            st.plotly_chart(dupont_analysis_plot(cstc),use_container_width=True)
+            st.plotly_chart(plot_profit_structure(df_kqkd, cstc),use_container_width=True)
 
     with t3:
         start_date = pd.to_datetime(df["Date"]).min()
@@ -487,29 +495,26 @@ def phan_tich_cp(code,cstc):
                 ]
             ))
             # Show the plot
-            st.plotly_chart(fig)
+            st.plotly_chart(fig,use_container_width=True)
         with r:
             macd_container = st.container()
             rsi_container = st.container()
-            stochastic_container = st.container()
+
             if chart_type == "MACD":
                 with macd_container:
-                    plot_macd_chart(selected_data)
+                    st.plotly_chart(plot_macd_chart(selected_data),use_container_width=True)
             elif chart_type == "RSI":
                 with rsi_container:
-                    st.plotly_chart(plot_rsi_chart(selected_data))
+                    st.plotly_chart(plot_rsi_chart(selected_data),use_container_width=True)
 
         expander = st.expander("Stock Data")
         expander.write(selected_data)
 
     with t4:
-        h1,h2 = st.columns(2)
-        with h1:
-            fig4 = plot_capital_structure(df_cdkto)  # Nguồn vốn
-            st.plotly_chart(fig4)
-        with h2:
-            fig5 = plot_asset_structure(df_cdkto)  # Tài sản
-            st.plotly_chart(fig5)
+        fig4 = plot_capital_structure(df_cdkto)  # Nguồn vốn
+        st.plotly_chart(fig4,use_container_width=True)
+        fig5 = plot_asset_structure(df_cdkto)  # Tài sản
+        st.plotly_chart(fig5,use_container_width=True)
 
         fig1 = plot_accounting_balance(df_cdkto,cstc)#Cân đối kế toán
         st.plotly_chart(fig1)
@@ -523,7 +528,7 @@ def phan_tich_cp(code,cstc):
                             'KQKD. Lợi nhuận sau thuế thu nhập doanh nghiệp']
         st.write(df_kqkd[col_kqkd])
 
-        fig3 = plot_cash_flow(df_lctt)#Dòng tiền
+        fig3 = plot_cash_flow(df_lctt,)#Dòng tiền
         st.plotly_chart(fig3)
         col_lctt = ['Năm', 'LCTT. Lưu chuyển tiền tệ ròng từ các hoạt động sản xuất kinh doanh (TT)'
         ,'LCTT. Lưu chuyển tiền tệ từ hoạt động tài chính (TT)','LCTT. Lưu chuyển tiền tệ ròng từ hoạt động đầu tư (TT)',
@@ -578,11 +583,11 @@ def phan_tich_cp(code,cstc):
     with t6:
         cdkt,kqkd,lctt =st.tabs(["Bảng cân đối kế toán",'Báo cáo kết quả kinh doanh','Báo cáo lưu  tiền tệ'])
         with cdkt:
-            st.write(df_cdkto)
+            st.table(df_cdkto)
         with kqkd:
             st.table(df_kqkd)
         with lctt:
-            st.dataframe(df_lctt)
+            st.table(df_lctt)
 
 def preprocess_industry_data(industry_data):
     industry_data = industry_data.loc[["Vốn hóa (tỷ)", "Giá", "P/E", "ROE", "P/B", "ROA",'rs']]
@@ -790,7 +795,7 @@ def plot_macd_chart(data):
     ))
 
     # Hiển thị biểu đồ trong Streamlit
-    st.plotly_chart(fig)
+    return fig
 def add_trace(fig, x, y, name, color, width=1.5, mode='lines'):
     fig.add_trace(go.Scatter(x=x, y=y, mode=mode, name=name, line=dict(color=color, width=width)))
 def plot_sma(fig, df, windows, color):
@@ -1362,7 +1367,5 @@ def dupont_analysis_plot(cstc):
 
     # Hiển thị biểu đồ
     return fig
-
 if __name__ == "__main__":
     main()
-
