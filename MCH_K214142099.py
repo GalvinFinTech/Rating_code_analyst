@@ -164,7 +164,7 @@ def main():
     # Hiển thị tiêu đề và thông tin ở cột trái
     with left_column:
         st.title('MCH')
-        image = Image.open('/Users/nguyenhoangvi/Downloads/Ứng dụng Python/Report - GPM/MCH.jpeg')
+        image = Image.open('/Users/nguyenhoangvi/Downloads/Ứng dụng Python/MCH_K214142099/MCH.jpeg')        
         st.image(image, caption='CTCP Hàng tiêu dùng Masan')
     with right_column:
         # Display metrics in a single row
