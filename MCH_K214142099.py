@@ -168,13 +168,20 @@ def main():
         st.sidebar.title("📈 Stock Dashboard")
         options = st.sidebar.radio('Pages', options=['Phân tích ngành', 'Phân tích cổ phiếu'])
     # Tạo layout cột trái và cột phải
-    left_column, right_column = st.columns(2)
+    col1, col2, col3 = st.columns(3)
     # Hiển thị tiêu đề và thông tin ở cột trái
-    with left_column:
+    with col1:
         st.title('MCH')
         image = Image.open('/Users/nguyenhoangvi/Downloads/Ứng dụng Python/MCH_K214142099/MCH.jpeg')
         st.image(image, caption='CTCP Hàng tiêu dùng Masan')
-    with right_column:
+    with col2:
+        st.markdown('Giá hiện tại')
+        df = stock_intraday_data(symbol=code, page_size=1)
+        time = df.iloc[0, 1]
+        price = df.iloc[0, 5]
+        delta = df.iloc[0, 7]
+        st.metric(label=time, value=price, delta=delta,delta_color="inverse")
+     with col3:
         # Display metrics in a single row
         c1, c2, c3 = st.columns(3)
         with c1:
