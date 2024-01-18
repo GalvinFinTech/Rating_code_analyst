@@ -154,11 +154,13 @@ def main():
         "epsGrowth1Year": (0, 1000000),
     }
     df = stock_screening_insights(params, size=1700, drop_lang='vi', headers=tcbs_headers)
-    beta = df.loc[df['ticker'] == 'MCH', 'beta'].values[0]
-    ebitda = df.loc[df['ticker'] == 'MCH', 'evEbitda'].values[0]
-    pe = df.loc[df['ticker'] == 'MCH', 'pe'].values[0]
-    pb = df.loc[df['ticker'] == 'MCH', 'pb'].values[0]
-    eps = df.loc[df['ticker'] == 'MCH', 'eps'].values[0]
+    
+    beta = df.loc[df['ticker'] == code, 'beta'].values[0]
+    ebitda = df.loc[df['ticker'] == code, 'evEbitda'].values[0]
+    pe = df.loc[df['ticker'] == code, 'pe'].values[0]
+    pb = df.loc[df['ticker'] == code, 'pb'].values[0]
+    eps = df.loc[df['ticker'] == code, 'eps'].values[0]
+    mar = df.loc[df['ticker'] == code, 'marketCap'].values[0]
 
     with st.sidebar:
         st.sidebar.title("📈 Stock Dashboard")
@@ -183,31 +185,26 @@ def main():
         c1, c2, c3 = st.columns(3)
         with c1:
             st.markdown('Vốn hoá')
-           #mar = mch_data.at[mch_data.index[0], 'marketCap']
-            #st.subheader(mar)
+            st.subheader(mar)
         with c2:
             st.markdown('Beta')
-            #beta = mch_data.at[mch_data.index[0], 'beta']
             st.subheader(beta)
         with c3:
             st.markdown('EPS')
-            #eps =mch_data.at[mch_data.index[0],'eps']
             st.subheader(eps)
 
         # Display additional metrics in a single row
         c4, c5, c6 = st.columns(3)
         with c4:
             st.markdown('EV/Ebitda')
-            #ebit = mch_data.at[mch_data.index[0], 'evEbitda']
             st.subheader(ebitda)
         with c5:
             st.markdown('PE')
-            #pe = mch_data.at[mch_data.index[0], 'pe']
             st.subheader(pe)
         with c6:
             st.markdown('PB')
-            #pb = mch_data.at[mch_data.index[0], 'pb']
             st.subheader(pb)
+            
     df_info, df_price, df_volume = load_data(file_path)
     if options == 'Phân tích ngành':
             phan_tich_nganh(df_info,bctc,code)
