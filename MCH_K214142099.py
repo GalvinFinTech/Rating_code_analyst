@@ -8,7 +8,7 @@ import ta
 
 
 st.set_page_config(page_title="Stock Dashboard", page_icon="📈", layout="wide")
-code = st.text_input('Enter stock code (Example: MCH):').upper()
+
 
 # Đánh dấu hàm này để lưu trữ dữ liệu tải lên trong bộ nhớ cache
 @st.cache_data
@@ -18,23 +18,18 @@ def load_data(file_path):
     df_volume = pd.read_excel(file_path, sheet_name="Volume")
     return df_info, df_price, df_volume
 file_path = "Price-Vol VN 2015-2023.xlsx"
-
+years = [2018, 2019, 2020, 2021, 2022]
 def load_and_clean_sheet(file_path):
     sheet = pd.read_excel(file_path, skiprows=7, skipfooter=11)
     sheet.columns = sheet.iloc[0]
     sheet = sheet.iloc[1:]
     return sheet
 
-
-def convert_cstc_data(ticker, frequency='yearly', transpose=True):
-    lee = financial_ratio(ticker, frequency, transpose)
-    # Transpose the DataFrame
-    cstc = lee.transpose()
-    # Reset the index
-    cstc.reset_index(inplace=True)
+def convert_cstc_data(code):
+    lee = financial_ratio(code, 'yearly', True)
+    df = pd.DataFrame(lee.T)
     # Rename columns based on the mapping
     name_mapping = {
-        'year': 'year',
         'ticker': 'Mã cổ phiếu',
         'priceToEarning': 'P/E',
         'priceToBook': 'P/B',
@@ -75,10 +70,9 @@ def convert_cstc_data(ticker, frequency='yearly', transpose=True):
         'ebitdaOnStockChange': 'Thay đổi EBITDA trên cổ phiếu',
         'bookValuePerShareChange': 'Thay đổi giá trị sổ sách trên cổ phiếu',
     }
-    cstc = cstc.rename(columns=name_mapping)
+    cstc = df.rename(columns=name_mapping)
     # Set 'year' column as the index
-    cstc = cstc.set_index('year')
-
+    #cstc = cstc.set_index('year')
     return cstc
 
 
@@ -107,7 +101,6 @@ def rename_columns_and_sort(df):
 def process_numeric_column(df, column_name):
     df[column_name] = pd.to_numeric(df[column_name], errors='coerce')
 
-
 def process_stock_data(df, code):
     mch_data = df[df['Mã'] == code].copy()
     mch_data.columns = mch_data.columns.str.split('\n').str[0]
@@ -132,7 +125,7 @@ def load_and_process_data(years, code):
         df['Năm'] = df['Năm'].astype(int)
 
     return df_cdkto_all, df_kqkd_all, df_lctt_all
-#years = [2018, 2019, 2020, 2021, 2022]
+
 def prepare_data(data_dict, code):
     df_info, df_price, df_volume = data_dict
     stock_price = get_stock_data(df_price, code, "close")
@@ -147,32 +140,36 @@ def get_stock_data(data_df, code, value_column):
     stock_result = stock_result.dropna(subset=[value_column])
     return stock_result[["Date", value_column]]
 def main():
-
+    code = st.text_input('Enter stock code (Example: MCH):').upper()
     industry = 'Thực phẩm'
-    years = [2018, 2019, 2020, 2021, 2022]
     bank_bctc = process_and_concat_data(years, industry)
     rename_columns_and_sort(bank_bctc)
     process_numeric_column(bank_bctc, 'CĐKT. VỐN CHỦ SỞ HỮU')
     avg_von = bank_bctc.groupby('MÃ')['CĐKT. VỐN CHỦ SỞ HỮU'].mean()
     top_10 = avg_von.nlargest(10)
     bctc = bank_bctc[bank_bctc['MÃ'].isin(top_10.index)]
-    cstc = convert_cstc_data(code, 'yearly', True)
+    cstc = convert_cstc_data(code)
     params = {
         "exchangeName": "HOSE,HNX,UPCOM",
         "epsGrowth1Year": (0, 1000000),
     }
-    V = stock_screening_insights(params, size=1700, drop_lang='vi')
-    mch_data = V[V['ticker'] == 'MCH' ]
-    #mch_data_reset = mch_data.reset_index(drop=True)
+    df = stock_screening_insights(params, size=1700, drop_lang='vi', headers=tcbs_headers)
+    beta = df.loc[df['ticker'] == 'MCH', 'beta'].values[0]
+    ebitda = df.loc[df['ticker'] == 'MCH', 'evEbitda'].values[0]
+    pe = df.loc[df['ticker'] == 'MCH', 'pe'].values[0]
+    pb = df.loc[df['ticker'] == 'MCH', 'pb'].values[0]
+    eps = df.loc[df['ticker'] == 'MCH', 'eps'].values[0]
+
     with st.sidebar:
         st.sidebar.title("📈 Stock Dashboard")
         options = st.sidebar.radio('Pages', options=['Phân tích ngành', 'Phân tích cổ phiếu'])
     # Tạo layout cột trái và cột phải
+    #left_column, right_column = st.columns(2)
     col1, col2, col3 = st.columns(3)
     # Hiển thị tiêu đề và thông tin ở cột trái
     with col1:
         st.title('MCH')
-        image = Image.open('/Users/nguyenhoangvi/Downloads/Ứng dụng Python/MCH_K214142099/MCH.jpeg')
+        image = Image.open('MCH.jpeg')
         st.image(image, caption='CTCP Hàng tiêu dùng Masan')
     with col2:
         st.markdown('Giá hiện tại')
@@ -181,44 +178,43 @@ def main():
         price = df.iloc[0, 5]
         delta = df.iloc[0, 7]
         st.metric(label=time, value=price, delta=delta,delta_color="inverse")
-     with col3:
+    with col3:
         # Display metrics in a single row
         c1, c2, c3 = st.columns(3)
         with c1:
             st.markdown('Vốn hoá')
-            mar = mch_data.at[mch_data.index[0], 'marketCap']
-            st.subheader(mar)
+           #mar = mch_data.at[mch_data.index[0], 'marketCap']
+            #st.subheader(mar)
         with c2:
             st.markdown('Beta')
-            beta = mch_data.at[mch_data.index[0], 'beta']
+            #beta = mch_data.at[mch_data.index[0], 'beta']
             st.subheader(beta)
         with c3:
             st.markdown('EPS')
-            eps =mch_data.at[mch_data.index[0],'eps']
+            #eps =mch_data.at[mch_data.index[0],'eps']
             st.subheader(eps)
 
         # Display additional metrics in a single row
         c4, c5, c6 = st.columns(3)
         with c4:
             st.markdown('EV/Ebitda')
-            ebit = mch_data.at[mch_data.index[0], 'evEbitda']
-            st.subheader(ebit)
+            #ebit = mch_data.at[mch_data.index[0], 'evEbitda']
+            st.subheader(ebitda)
         with c5:
             st.markdown('PE')
-            pe = mch_data.at[mch_data.index[0], 'pe']
+            #pe = mch_data.at[mch_data.index[0], 'pe']
             st.subheader(pe)
         with c6:
             st.markdown('PB')
-            pb = mch_data.at[mch_data.index[0], 'pb']
+            #pb = mch_data.at[mch_data.index[0], 'pb']
             st.subheader(pb)
-
     df_info, df_price, df_volume = load_data(file_path)
     if options == 'Phân tích ngành':
-            phan_tich_nganh(df_info,bctc)
+            phan_tich_nganh(df_info,bctc,code)
     elif options == 'Phân tích cổ phiếu':
             phan_tich_cp(code,cstc,years)
 # Trang phân tích ngành
-def phan_tich_nganh(df_info,bctc):
+def phan_tich_nganh(df_info,bctc,code):
     # Áp dụng bộ lọc với hàm để lấy kết quả
     params = {
         "exchangeName": "HOSE,HNX,UPCOM",
@@ -243,10 +239,9 @@ def phan_tich_nganh(df_info,bctc):
     fig8 = plot_equity(bctc)
     st.plotly_chart(fig8,use_container_width=True)
     fig9 = plot_profit_after_tax(bctc)
-
     st.plotly_chart(fig9,use_container_width=True)
-    #nganh = industry_analysis('MCH', lang="vi")
-    d1 = preprocess_industry_data()
+
+    d1 = preprocess_industry_data(code)
     d1.columns = ['Mã CP', 'Vốn hóa(tỷ)', 'Giá', 'P/B', 'ROE', 'P/E', 'ROA']
     # Chọn giá trị cho x và y từ người dùng
     selected_x = st.selectbox('Chọn giá trị cho trục x:', ['ROE', 'ROA'])
@@ -287,7 +282,6 @@ def phan_tich_nganh(df_info,bctc):
         st.plotly_chart(fig_exchange, use_container_width=True)
 #Trang phân tích cổ phiếu
 def phan_tich_cp(code,cstc,years):
-    #code = st.text_input('Enter stock code (Example: MCH):').upper()
     data_dict = load_data(file_path)
     stock_info, stock_price, stock_volume = prepare_data(data_dict, code)
     merged_df = pd.concat([stock_price.set_index('Date'), stock_volume.set_index('Date')], axis=1)
@@ -295,7 +289,6 @@ def phan_tich_cp(code,cstc,years):
     df['Date'] = pd.to_datetime(df['Date'])
     df_cdkto, df_kqkd, df_lctt = load_and_process_data(years, code)
 
-    st.markdown('### Time Series Analysis')
     left_column, right_column = st.columns((7, 3))
     with right_column:
         st.write('')
@@ -461,6 +454,7 @@ def phan_tich_cp(code,cstc,years):
             available_ema_windows = ['10', '14', '20', '50', '100', '200']
             selected_ema_windows = st.multiselect('Select EMA Windows', available_ema_windows)
             chart_type = st.selectbox("Select Chart Type", ["MACD", "RSI"])
+
         l, r = st.columns(2)
         with l:
             # Create figure
@@ -475,7 +469,6 @@ def phan_tich_cp(code,cstc,years):
             fig.update_layout(
                 title="Stock Price with Technical Indicators",
                 xaxis_title='Date',
-                yaxis_title='Close Price',
                 showlegend=True,
                 hovermode='x unified'
             )
@@ -504,11 +497,10 @@ def phan_tich_cp(code,cstc,years):
                 ]
             ))
             # Show the plot
-            st.plotly_chart(fig,use_container_width=True)
+            st.plotly_chart(fig)
         with r:
             macd_container = st.container()
             rsi_container = st.container()
-
             if chart_type == "MACD":
                 with macd_container:
                     st.plotly_chart(plot_macd_chart(selected_data),use_container_width=True)
@@ -598,11 +590,8 @@ def phan_tich_cp(code,cstc,years):
         with lctt:
             st.table(df_lctt)
 
-def preprocess_industry_data():
-    df1 = industry_analysis("VNM", lang="vi")
-    df2 = industry_analysis("MCH", lang="vi")
-    industry_data = df1.copy()
-    industry_data['VNM'] = df2['VNM']
+def preprocess_industry_data(code):
+    industry_data = industry_analysis(code, lang="vi")
     industry_data = industry_data.loc[["Vốn hóa (tỷ)", "Giá", "P/E", "ROE", "P/B", "ROA"]]
     industry_data = industry_data.transpose().reset_index()
     industry_data.columns = ["Mã CP", "Vốn hóa (tỷ)", "Giá", "P/E", "ROE", "P/B", "ROA"]
@@ -724,7 +713,6 @@ def plot_rsi_chart(data):
     fig.update_layout(
         title="RSI Chart",
         xaxis_title='Date',
-        yaxis_title='RSI',
         showlegend=True,
         hovermode='x unified'
     )
@@ -759,7 +747,7 @@ def plot_macd_chart(data):
         y=data['macd'],
         mode='lines',
         name='MACD',
-        line=dict(color='blue', width=1)
+        line=dict(color='blue', width=1.5)
     ))
 
     # Đường tín hiệu (signal)
@@ -768,7 +756,7 @@ def plot_macd_chart(data):
         y=data['signal'],
         mode='lines',
         name='Signal',
-        line=dict(color='orange', width=1)
+        line=dict(color='orange', width=1.5)
     ))
 
     # Cột histogram
@@ -789,7 +777,6 @@ def plot_macd_chart(data):
     fig.update_layout(
         title="MACD Chart",
         xaxis_title='Date',
-        yaxis_title='MACD',
         showlegend=True, hovermode='x unified',
     )
 
@@ -808,7 +795,7 @@ def plot_macd_chart(data):
 
     # Hiển thị biểu đồ trong Streamlit
     return fig
-def add_trace(fig, x, y, name, color, width=1.5, mode='lines'):
+def add_trace(fig, x, y, name, color, width=2, mode='lines'):
     fig.add_trace(go.Scatter(x=x, y=y, mode=mode, name=name, line=dict(color=color, width=width)))
 def plot_sma(fig, df, windows, color):
     for window in windows:
@@ -1279,7 +1266,6 @@ def plot_leverage_ratios(cstc):
 
     # Hiển thị biểu đồ
     return fig
-
 def plot_pe_ratio(cstc):
     # Tạo figure
     fig = go.Figure()
@@ -1336,7 +1322,6 @@ def plot_pb_ratio(cstc):
 
     # Hiển thị biểu đồ
     return fig
-
 def dupont_analysis_plot(cstc):
     # Tính toán vòng quay tài sản
     cstc['vòng quay tài sản'] = 365 / (cstc['Số ngày phải thu'] - cstc['Số ngày phải trả'] + cstc['Số ngày tồn kho'])
