@@ -173,7 +173,7 @@ def main():
         st.image(image, caption='CTCP Hàng tiêu dùng Masan')
     with col2:
         st.markdown('Giá hiện tại')
-        df = stock_intraday_data(symbol='MCH', page_size=1)
+        df = stock_intraday_data (symbol='MCH', page_size=1, page=1, investor_segment=False)
         time = df['time'].iloc[0]
         price = df['averagePrice'].iloc[0]
         de = df['prevPriceChange'].iloc[0]
