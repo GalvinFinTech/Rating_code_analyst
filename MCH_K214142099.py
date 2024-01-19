@@ -174,9 +174,10 @@ def main():
     with col2:
         st.markdown('Giá hiện tại')
         df = stock_intraday_data(symbol=code, page_size=1)
+        time = df['time'].iloc[0]
         price = df['averagePrice'].iloc[0]
-        delta = df['prevPriceChange'].iloc[0]
-        st.metric(label=time, value=price, delta=delta,delta_color="inverse")
+        de = df['prevPriceChange'].iloc[0]
+        st.metric(label=time, value=price, delta=de, delta_color="inverse")
     with col3:
         # Display metrics in a single row
         c1, c2, c3 = st.columns(3)
