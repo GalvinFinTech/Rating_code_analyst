@@ -173,10 +173,9 @@ def main():
         st.image(image, caption='CTCP Hàng tiêu dùng Masan')
     with col2:
         st.markdown('Giá hiện tại')
-        df = stock_intraday_data(symbol=code, page_size=2)
-        time = df.iloc[0, 1]
-        price = df.iloc[0, 5]
-        delta = df.iloc[0, 7]
+        df = stock_intraday_data(symbol=code, page_size=1)
+        price = df['averagePrice'].iloc[0]
+        delta = df['prevPriceChange'].iloc[0]
         st.metric(label=time, value=price, delta=delta,delta_color="inverse")
     with col3:
         # Display metrics in a single row
