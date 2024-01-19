@@ -173,7 +173,7 @@ def main():
         st.image(image, caption='CTCP Hàng tiêu dùng Masan')
     with col2:
         st.markdown('Giá hiện tại')
-        df = stock_intraday_data(symbol=code, page_size=1)
+        df = stock_intraday_data(symbol=code, page_size=2)
         time = df.iloc[0, 1]
         price = df.iloc[0, 5]
         delta = df.iloc[0, 7]
