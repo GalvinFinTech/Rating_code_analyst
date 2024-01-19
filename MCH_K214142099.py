@@ -165,19 +165,12 @@ def main():
         options = st.sidebar.radio('Pages', options=['Phân tích ngành', 'Phân tích cổ phiếu'])
     # Tạo layout cột trái và cột phải
     #left_column, right_column = st.columns(2)
-    col1, col2, col3 = st.columns(3)
+    col1, col3 = st.columns(2)
     # Hiển thị tiêu đề và thông tin ở cột trái
     with col1:
         st.title('MCH')
         image = Image.open('MCH.jpeg')
         st.image(image, caption='CTCP Hàng tiêu dùng Masan')
-    with col2:
-        st.markdown('Giá hiện tại')
-        df = stock_intraday_data (symbol='MCH', page_size=1, page=1, investor_segment=False, headers=tcbs_headers)
-        time = df['time'].iloc[0]
-        price = df['averagePrice'].iloc[0]
-        de = df['prevPriceChange'].iloc[0]
-        st.metric(label=time, value=price, delta=de, delta_color="inverse")
     with col3:
         # Display metrics in a single row
         c1, c2, c3 = st.columns(3)
